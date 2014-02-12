@@ -5,11 +5,15 @@
 
 # This is the debhelper compatability version to use.
 
+#export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
+
 PACKAGE		 = libedit
 PKGDIR		 = ${CURDIR}/debian/tmp
 PMAKE_ARGS	 = MKPROFILE=no MKCATPAGES=no MLINKS= MANPAGES= \
 		 SHLIB_SHFLAGS="-Wl,-soname,libedit.so.${major}" \
-		 LDADD="*.so -lbsd -lcurses"
+		 LDADD="$(LDFLAGS) -lbsd -ltinfo"
 EDITLINE_3_LINKS = el_init el_end el_reset el_gets el_getc el_push \
 		 el_parse el_set el_get el_source el_resize el_line \
 		 el_insertstr el_deletestr history_init history_end history
@@ -23,6 +27,7 @@ ROOT		 = basesrc
 
 DEB_HOST_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 DEB_BUILD_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+DEB_HOST_MULTIARCH	?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
 ifneq ($(DEB_HOST_GNU_TYPE),$(DEB_BUILD_GNU_TYPE))
 CROSS=CC=$(DEB_HOST_GNU_TYPE)-gcc LD=$(DEB_HOST_GNU_TYPE)-ld
@@ -33,16 +38,16 @@ ifeq (mips-linux,$(DEB_HOST_GNU_TYPE))
 PMAKE_ARGS += MACHINE_ARCH=mipseb
 endif
 
-include /usr/share/quilt/quilt.make
-
-build: patch build-stamp
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
 build-stamp:
 	dh_testdir
 	chmod 755 libedit/makelist	# workaround a bug in upstream source
 	cd libedit && $(CROSS) pmake ${PMAKE_ARGS}
 	touch build-stamp
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	dh_clean build-stamp
@@ -52,22 +57,22 @@ install: build
 	dh_testdir
 	dh_testroot
 	dh_clean
-	install -d ${PKGDIR}/usr/lib
+	install -d ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)
 	install -d ${PKGDIR}/usr/include/readline
 	install -d ${PKGDIR}/usr/include/libedit
 	install -d ${PKGDIR}/usr/share/man/man3
 	install -d ${PKGDIR}/usr/share/man/man5
-	install -d ${PKGDIR}/usr/lib/pkgconfig
-	install -m 644 $(CURDIR)/debian/libedit-vis.h ${PKGDIR}/usr/include/libedit/vis.h
-	install -m 644 $(CURDIR)/debian/libedit.pc ${PKGDIR}/usr/lib/pkgconfig
+	install -d ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
+	install -m 644 $(CURDIR)/debian/libedit.pc ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig
+	sed -i '/^libdir=/s,$$,/$(DEB_HOST_MULTIARCH),' ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)/pkgconfig/libedit.pc
 	cd libedit && \
 	 pmake install incinstall DESTDIR=${PKGDIR} ${PMAKE_ARGS}
 ## pmake workaround
 	cd libedit/readline && \
 	 pmake incinstall DESTDIR=${PKGDIR} ${PMAKE_ARGS}
 	mv ${PKGDIR}/usr/include/readline ${PKGDIR}/usr/include/editline
-	ln -sf libedit.so.${version} ${PKGDIR}/usr/lib/libedit.so.${major}
-	ln -sf libedit.so.${major} ${PKGDIR}/usr/lib/libedit.so
+	ln -sf libedit.so.${version} ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)/libedit.so.${major}
+	ln -sf libedit.so.${major} ${PKGDIR}/usr/lib/$(DEB_HOST_MULTIARCH)/libedit.so
 
 binary-indep: build install
 binary-arch: build install
@@ -93,7 +98,8 @@ binary-arch: build install
 	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
-	dh_builddeb
+	dh_builddeb -plibedit2
+	dh_builddeb -plibedit-dev -- -Zbzip2 -z9
 
 binary: binary-indep binary-arch
 

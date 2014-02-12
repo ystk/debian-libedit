@@ -6,3 +6,5 @@
 10-define_SIZE_T_MAX.diff
 12-libedit-Makefile.diff
 20-fortify.patch
+fix_gcc_warnings.diff
+30-change-tty-handling.patch

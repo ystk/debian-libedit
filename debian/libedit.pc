@@ -8,6 +8,6 @@ Description: Not just a replacement library for libreadline and libhistory.
 Version: 2.11
 Requires:
 Requires.private: libbsd
-Libs: -L${libdir} -ledit -lcurses 
-Libs.private:
+Libs: -L${libdir} -ledit
+Libs.private: -ltinfo
 Cflags: -I${includedir}
